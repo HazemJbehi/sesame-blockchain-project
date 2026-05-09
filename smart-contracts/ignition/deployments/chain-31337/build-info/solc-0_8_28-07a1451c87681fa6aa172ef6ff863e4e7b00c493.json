@@ -1,0 +1,49 @@
+{
+  "_format": "hh3-sol-build-info-1",
+  "id": "solc-0_8_28-07a1451c87681fa6aa172ef6ff863e4e7b00c493",
+  "solcVersion": "0.8.28",
+  "solcLongVersion": "0.8.28+commit.7893614a",
+  "compilerType": "solc",
+  "toolVersions": {
+    "hardhat": "3.4.0"
+  },
+  "userSourceNameMap": {
+    "contracts/DocumentRegistry.sol": "project/contracts/DocumentRegistry.sol"
+  },
+  "input": {
+    "language": "Solidity",
+    "settings": {
+      "evmVersion": "cancun",
+      "optimizer": {
+        "enabled": true,
+        "runs": 200
+      },
+      "outputSelection": {
+        "*": {
+          "": [
+            "ast"
+          ],
+          "*": [
+            "abi",
+            "evm.bytecode.linkReferences",
+            "evm.bytecode.object",
+            "evm.bytecode.opcodes",
+            "evm.bytecode.sourceMap",
+            "evm.deployedBytecode.immutableReferences",
+            "evm.deployedBytecode.linkReferences",
+            "evm.deployedBytecode.object",
+            "evm.deployedBytecode.opcodes",
+            "evm.deployedBytecode.sourceMap",
+            "evm.methodIdentifiers"
+          ]
+        }
+      },
+      "remappings": []
+    },
+    "sources": {
+      "project/contracts/DocumentRegistry.sol": {
+        "content": "// SPDX-License-Identifier: MIT\r\npragma solidity ^0.8.20;\r\n\r\ncontract DocumentRegistry {\r\n    // ==========================================\r\n    // 1. Simplified SSI (Decentralized Identity)\r\n    // ==========================================\r\n    enum Role { None, User, Admin }\r\n    mapping(address => Role) public users;\r\n\r\n    // ==========================================\r\n    // 2. Document Structure (Metadata & IPFS)\r\n    // ==========================================\r\n    struct Document {\r\n        uint256 id;\r\n        string cid;         // The IPFS Content Identifier\r\n        string fileHash;    // Proof of Integrity (e.g., SHA-256 hash of the file)\r\n        address owner;      // The uploader's MetaMask address\r\n        uint256 timestamp;\r\n    }\r\n\r\n    uint256 public documentCount;\r\n    mapping(uint256 => Document) public documents;\r\n    \r\n    // ==========================================\r\n    // 3. Access Control (Who can view what)\r\n    // ==========================================\r\n    // Maps Document ID -> User Address -> Boolean (True if they have access)\r\n    mapping(uint256 => mapping(address => bool)) public documentAccess;\r\n\r\n    // Events for \"Historique des accès\" (Bonus Requirement)\r\n    event DocumentUploaded(uint256 indexed docId, address indexed owner, string cid);\r\n    event AccessGranted(uint256 indexed docId, address indexed owner, address indexed viewer);\r\n    event AccessRevoked(uint256 indexed docId, address indexed owner, address indexed viewer);\r\n    event RoleAssigned(address indexed user, Role role);\r\n\r\n    // The person who deploys the contract becomes the first Admin\r\n    constructor() {\r\n        users[msg.sender] = Role.Admin;\r\n        emit RoleAssigned(msg.sender, Role.Admin);\r\n    }\r\n\r\n    // Security modifier to check if someone has a role\r\n    modifier onlyRegistered() {\r\n        require(users[msg.sender] != Role.None, \"User has no role / not registered\");\r\n        _;\r\n    }\r\n\r\n    // ==========================================\r\n    // Functions\r\n    // ==========================================\r\n\r\n    // Admin can give roles to other MetaMask addresses\r\n    function assignRole(address _user, Role _role) public {\r\n        require(users[msg.sender] == Role.Admin, \"Only Admins can assign roles\");\r\n        users[_user] = _role;\r\n        emit RoleAssigned(_user, _role);\r\n    }\r\n\r\n    // Upload a document's metadata to the blockchain\r\n    function uploadDocument(string memory _cid, string memory _fileHash) public onlyRegistered {\r\n        documentCount++;\r\n        \r\n        documents[documentCount] = Document({\r\n            id: documentCount,\r\n            cid: _cid,\r\n            fileHash: _fileHash,\r\n            owner: msg.sender,\r\n            timestamp: block.timestamp\r\n        });\r\n\r\n        // The owner automatically gets access to their own document\r\n        documentAccess[documentCount][msg.sender] = true;\r\n\r\n        emit DocumentUploaded(documentCount, msg.sender, _cid);\r\n    }\r\n\r\n    // Grant access to another user\r\n    function grantAccess(uint256 _docId, address _user) public {\r\n        require(documents[_docId].owner == msg.sender, \"Only owner can grant access\");\r\n        documentAccess[_docId][_user] = true;\r\n        emit AccessGranted(_docId, msg.sender, _user);\r\n    }\r\n\r\n    // BONUS: Revocation of access rights\r\n    function revokeAccess(uint256 _docId, address _user) public {\r\n        require(documents[_docId].owner == msg.sender, \"Only owner can revoke access\");\r\n        documentAccess[_docId][_user] = false;\r\n        emit AccessRevoked(_docId, msg.sender, _user);\r\n    }\r\n\r\n    // Retrieve a document (Only if the user has access)\r\n    function getDocument(uint256 _docId) public view returns (string memory, string memory, address, uint256) {\r\n        require(documentAccess[_docId][msg.sender] == true, \"Access denied: You do not have permission to view this document\");\r\n        \r\n        Document memory doc = documents[_docId];\r\n        return (doc.cid, doc.fileHash, doc.owner, doc.timestamp);\r\n    }\r\n}"
+      }
+    }
+  }
+}
